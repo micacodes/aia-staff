@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "514250087098",
+    "project_id": "epic-app-in-app",
+    "storage_bucket": "epic-app-in-app.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:514250087098:android:c3dc10e9eb67bd65a60083",
+        "android_client_info": {
+          "package_name": "io.appinapp.staff"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC22EleE2RPkDcCuhyb0dPIOJLaTjL1Qk8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:514250087098:android:a0a0906debb77976a60083",
+        "android_client_info": {
+          "package_name": "io.appinapp.user"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC22EleE2RPkDcCuhyb0dPIOJLaTjL1Qk8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
