@@ -1,10 +1,11 @@
-import notifee, {
-  AndroidImportance,
-  Notification,
-} from "@notifee/react-native";
+// import notifee, {
+//   AndroidImportance,
+//   Notification,
+// } from "@notifee/react-native";
+import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 
 const notificationIcon = require("../assets/icon.png");
-
 
 const NOTIFICATION_CHANNELS = Object.freeze({
   default: {
@@ -28,41 +29,47 @@ export const NotificationChannels = {
 };
 
 export const createNotificationChannels = async () => {
-  const channels = Object.entries(NOTIFICATION_CHANNELS).reduce(
-    (prev, [id, { description, name }]) => {
-      prev.push(
-        notifee.createChannel({
-          id: id,
-          name,
-          description,
-          lights: true,
-          vibration: true,
-          importance: AndroidImportance.DEFAULT,
-          badge: true,
-        })
-      );
-
-      return prev;
-    },
-    []
+  const channels = Object.entries(NOTIFICATION_CHANNELS).map(
+    async ([id, { description, name }]) => {
+      await Notifications.setNotificationChannelAsync(id, {
+        name,
+        description,
+        importance: Notifications.AndroidImportance.DEFAULT,
+        lightColor: "#FF231F7C",
+        vibrationPattern: [0, 250, 250, 250],
+        showBadge: true,
+      });
+    }
   );
-  await Promise.resolve(channels);
+
+  await Promise.all(channels);
 };
 
-export const displayNotification = <
+export const displayNotification = async <
   C extends keyof typeof NOTIFICATION_CHANNELS | null
 >(
-  data: Omit<Notification, "android" | "ios">,
+  data: Omit<Notifications.NotificationContentInput, "android" | "ios">,
   channel: C = null
 ) => {
   const channelId = NotificationChannels.get(channel ?? "default");
 
-  return notifee.displayNotification({
-    title: data.title,
-    body: data.body,
-    android: {
-      channelId,
-      largeIcon: notificationIcon,
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: data.title,
+      body: data.body,
+      ...(Platform.OS === "android"
+        ? {
+            android: {
+              channelId,
+            },
+          }
+        : {
+            ios: {
+              sound: true,
+              _displayInForeground: true,
+            },
+          }),
     },
+    trigger: null,
   });
 };

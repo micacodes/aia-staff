@@ -14,9 +14,7 @@
     "updates": {
       "fallbackToCacheTimeout": 0
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "bundleIdentifier": "io.appinapp.staff",
       "supportsTablet": true,
@@ -62,11 +60,6 @@
         }
       ],
       "@react-native-firebase/app"
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "918462a5-cb34-4f86-847d-f259898842dc"
-      }
-    }
+    ]
   }
 }

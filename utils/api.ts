@@ -1,3 +1,7 @@
+console.log("✅ API_BASE_URL from .env:", process.env.API_BASE_URL);
+console.log("✅ API_BASE_VERSION from .env:", process.env.API_BASE_VERSION);
+
+
 import axios, {
 	AxiosError,
 	AxiosResponse,
@@ -8,16 +12,15 @@ import axios, {
 import { getAuthenticatedSession, killAuthenticatedSession } from "./auth";
 
 const API_BASE_URL =
-	process.env.API_BASE_URL ||
-	/**/ "https://aia-staging.onrender.com"; /**'http://192.168.0.73:3333'/**/
+  process.env.API_BASE_URL || "https://osen-api.appinapp.ke";
 const API_BASE_VERSION = process.env.API_BASE_VERSION || "v1";
 
 const http: AxiosInstance = axios.create({
 	baseURL: `${API_BASE_URL}/${API_BASE_VERSION}`,
 	withCredentials: true,
 	headers: {
-		Accept: "Application/json",
-		"Content-Type": "Application/json",
+		"Content-Type": "application/json",
+		Accept: 'application/json'
 	},
 });
 
@@ -28,7 +31,7 @@ const handleError = (reason: string | number = "expired") => reason;
 http.interceptors.request.use(
 	async (config: InternalAxiosRequestConfig) => {
 		const session = await getAuthenticatedSession();
-
+		console.log('Session:', session);
 		if (config.headers && session && session.sessionToken) {
 			config.headers.Authorization = `Bearer ${session.sessionToken}`;
 		}

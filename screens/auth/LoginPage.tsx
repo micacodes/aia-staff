@@ -2,223 +2,252 @@ import { useContext, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { useToast } from "react-native-toast-notifications";
 import {
-	Text,
-	View,
-	Image,
-	TouchableOpacity,
-	TextInput,
-	Pressable,
+  Text,
+  View,
+  Image,
+  TouchableOpacity,
+  TextInput,
+  Pressable,
 } from "react-native";
 import {
-	useForm,
-	Controller,
-	SubmitErrorHandler,
-	SubmitHandler,
+  useForm,
+  Controller,
+  SubmitHandler,
+  SubmitErrorHandler,
 } from "react-hook-form";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
-import { AuthContext } from "../../providers/AuthProvider";
-import { api } from "../../utils/api";
 import { Checkbox } from "react-native-paper";
 
-type AuthData = { username: string; password: string; identifier: string };
+import { AuthContext } from "../../providers/AuthProvider";
+import { api } from "../../utils/api";
+
+type AuthData = {
+  username: string;
+  password: string;
+  identifier: string;
+};
+
+type Vendor = {
+  id: string;
+  name: string;
+};
+
+type Branch = {
+  id: string;
+  name: string;
+};
 
 type AuthUser = {
-	expiresAt: string;
-	meta: {};
-	name: string;
-	token: string;
-	tokenHash: string;
-	type: "bearer";
-	user: {
-		about: null;
-		avatar: string | null;
-		avatarUrl: string;
-		createdAt: string;
-		deletedAt: null;
-		dob: null;
-		email: string;
-		firstName: string;
-		gender: null;
-		geom: null;
-		id: string;
-		initials: string;
-		lastName: string;
-		location: null;
-		name: string;
-		phone: string;
-		rememberMeToken: null;
-		socialProvider: null;
-		socialProviderId: null;
-		status: string;
-		updatedAt: string;
-	};
-	vendor?: Vendor;
-	branch?: Branch;
+  token: string;
+  tokenHash: string;
+  expiresAt: string;
+  type: "bearer";
+  meta: Record<string, any>;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    avatar: string | null;
+    avatarUrl: string;
+    createdAt: string;
+    updatedAt: string;
+    initials: string;
+    name: string;
+    status: string;
+    [key: string]: any; 
+  };
+  vendor?: Vendor;
+  branch?: Branch;
 };
 
-const initialState = {
-	remember: false,
-};
+export default function LoginPage({ navigation }: any) {
+  const { setSession } = useContext(AuthContext);
+  const toast = useToast();
 
-export default function LoginPage({ navigation }) {
-	const { setSession } = useContext(AuthContext);
-	const {
-		handleSubmit,
-		control,
-		formState: { errors, isSubmitting },
-	} = useForm<AuthData>();
-	const [showPassword, setShowPassword] = useState(false);
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<AuthData>();
+
+  const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
 
-	const toast = useToast();
+  const onSubmit: SubmitHandler<AuthData> = async (data) => {
+    console.log('=========', data)
+    try {
+      toast.show("Logging in...", { type: "info" });
 
-	const onSubmit: SubmitHandler<AuthData> = async (data: AuthData) => {
-		// toast.show("Logging in...", {
-		// 	type: "success",
-		// });
+      const res = await api.post<AuthUser>("auth/login/staff/", data, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      console.log("Login Response:", res?.token);
+      if (res?.token) {
+        const user = res?.user;
 
-		const res = await api.post<AuthUser>("auth/login/staff", data);
+        setSession({
+          sessionToken: res?.token,
+          session: {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phone: user.phone,
+            avatarUrl: user.avatarUrl,
+            id: user.id,
+            vendor: res?.vendor,
+            branch: res?.branch,
+          },
+        });
 
-		console.log(res);
+        toast.show("Login successful!", { type: "success" });
 
-		if (res.token) {
-			setSession({
-				sessionToken: res.token,
-				session: {
-					firstName: res.user.firstName,
-					lastName: res.user.lastName,
-					email: res.user.email,
-					phone: res.user.phone,
-					avatarUrl: res.user.avatarUrl,
-					id: res.user.id,
-					vendor: res.vendor,
-					branch: res.branch,
-				},
-			});
+        setTimeout(() => {
+          navigation.navigate("Home");
+        }, 1000);
+      } else {
+        toast.show("Login failed. Invalid credentials.", { type: "danger" });
+      }
+    } catch (error: any) {
+      console.error("Login Error:", error);
 
-			setTimeout(() => {
-				navigation.navigate("Home");
-			}, 1000);
-		}
-	};
+      toast.show("An error occurred. Please try again.", { type: "danger" });
 
-	const onError: SubmitErrorHandler<any> = (errors, e) => {
-		return console.log(errors);
-	};
+      if (error.response?.data?.message) {
+        toast.show(error.response.data.message, { type: "danger" });
+      }
+    }
+  };
 
-	return (
-		<View className="flex-1 justify-center bg-gray-100 px-6 ">
-			<View className="flex justify-center items-center mb-14">
-				<Image
-					className="h-28 w-28"
-					source={require("../../assets/icon.png")}
-				/>
-			</View>
+  const onError: SubmitErrorHandler<AuthData> = (errors) => {
+    console.log("Form Errors:", errors);
+  };
 
-			<Text className="text-2xl mb-1 text-center">
-				Welcome to AppInApp
-			</Text>
-			<Text className="text-base text-slate-500 text-center">
-				Sign in to your account below
-			</Text>
-			<StatusBar style="auto" />
+  return (
+    <View className="flex-1 justify-center bg-gray-100 px-6">
+      <View className="flex items-center mb-14">
+        <Image
+          className="h-28 w-28"
+          source={require("../../assets/icon.png")}
+        />
+      </View>
 
-			<Text className="m-2 ml-0 mt-4 text-primary-900">
-				Email, phone or username
-			</Text>
+      <Text className="text-2xl mb-1 text-center">Welcome to AppInApp</Text>
+      <Text className="text-base text-slate-500 text-center">
+        Sign in to your account below
+      </Text>
+      <StatusBar style="auto" />
 
-			<Controller
-				control={control}
-				render={({ field: { onChange, onBlur, value } }) => (
-					<TextInput
-						className="w-full px-3 py-3 border border-primary-600 rounded-lg"
-						onBlur={onBlur}
-						onChangeText={onChange}
-						placeholder="Email, phone or username"
-						placeholderTextColor="rgba(0, 0, 0, 0.50)"
-						value={value}
-					/>
-				)}
-				name="username"
-				rules={{ required: true }}
-			/>
+      {/* Username */}
+      <Text className="m-2 ml-0 mt-4 text-primary-900">Email, phone or username</Text>
+      <Controller
+        control={control}
+        name="username"
+        rules={{ required: "This field is required" }}
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput
+            className="w-full px-3 py-3 border border-primary-600 rounded-lg"
+            onBlur={onBlur}
+            onChangeText={onChange}
+            value={value}
+            placeholder="Email, phone or username"
+            placeholderTextColor="rgba(0, 0, 0, 0.50)"
+          />
+        )}
+      />
+      {errors.username && (
+        <Text className="text-red-500 text-sm">{errors.username.message}</Text>
+      )}
 
-			<Text className="m-2 ml-0 mt-4">Staff ID</Text>
-			<Controller
-				control={control}
-				render={({ field: { onChange, onBlur, value } }) => (
-					<TextInput
-						className="w-full px-3 py-3 border border-primary-600 rounded-lg"
-						onBlur={onBlur}
-						onChangeText={onChange}
-						placeholder="Staff ID for employer"
-						placeholderTextColor="rgba(0, 0, 0, 0.50)"
-						value={value}
-					/>
-				)}
-				name="identifier"
-				rules={{ required: true }}
-			/>
+      {/* Identifier */}
+      <Text className="m-2 ml-0 mt-4">Staff ID</Text>
+      <Controller
+        control={control}
+        name="identifier"
+        rules={{ required: "This field is required" }}
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput
+            className="w-full px-3 py-3 border border-primary-600 rounded-lg"
+            onBlur={onBlur}
+            onChangeText={onChange}
+            value={value}
+            placeholder="Staff ID for employer"
+            placeholderTextColor="rgba(0, 0, 0, 0.50)"
+          />
+        )}
+      />
+      {errors.identifier && (
+        <Text className="text-red-500 text-sm">{errors.identifier.message}</Text>
+      )}
 
-			<Text className="m-2 ml-0 mt-3">Account password</Text>
-			<Controller
-				control={control}
-				render={({ field: { onChange, onBlur, value } }) => (
-					<View>
-						<TextInput
-							className="w-12/12 px-3 py-3 border border-primary-600  rounded-lg"
-							onBlur={onBlur}
-							onChangeText={onChange}
-							secureTextEntry={!showPassword}
-							placeholder="Account password"
-							placeholderTextColor="rgba(0, 0, 0, 0.50)"
-							value={value}
-						/>
-						<TouchableOpacity
-							onPress={() => setShowPassword(!showPassword)}
-							className="absolute right-0 top-0 bottom-0 flex items-center justify-center mr-3"
-						>
-							<Icon
-								name={showPassword ? "eye-off" : "eye"}
-								size={20}
+      {/* Password */}
+      <Text className="m-2 ml-0 mt-3">Account password</Text>
+      <Controller
+        control={control}
+        name="password"
+        rules={{ required: "This field is required" }}
+        render={({ field: { onChange, onBlur, value } }) => (
+          <View>
+            <TextInput
+              className="w-full px-3 py-3 border border-primary-600 rounded-lg"
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+              secureTextEntry={!showPassword}
+              placeholder="Account password"
+              placeholderTextColor="rgba(0, 0, 0, 0.50)"
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              className="absolute right-0 top-0 bottom-0 flex items-center justify-center mr-3"
+            >
+              <Icon
+                name={showPassword ? "eye-off" : "eye"}
+                size={20}
                 color="#5E9C8F"
-							/>
-						</TouchableOpacity>
-					</View>
-				)}
-				name="password"
-				rules={{ required: true }}
-			/>
+              />
+            </TouchableOpacity>
+          </View>
+        )}
+      />
+      {errors.password && (
+        <Text className="text-red-500 text-sm">{errors.password.message}</Text>
+      )}
 
-			<View className="flex flex-row justify-between mt-3 items-center">
-				<View className="flex flex-row justify-between items-center">
-          <Checkbox 
-            status={remember ? 'checked' : 'unchecked'}
-            onPress={() => {
-              setRemember(!remember);
-            }}
+      {/* Remember me and Forgot Password */}
+      <View className="flex flex-row justify-between mt-3 items-center">
+        <View className="flex flex-row items-center">
+          <Checkbox
+            status={remember ? "checked" : "unchecked"}
+            onPress={() => setRemember((prev) => !prev)}
             color="#5E9C8F"
-           />
-					<Text className="">Remember me</Text>
-				</View>
+          />
+          <Text>Remember me</Text>
+        </View>
 
-				<Pressable
-					onPress={() => navigation.navigate("ForgotPasswordPage")}
-				>
-					<Text className="text-primary-600">Forgot password</Text>
-				</Pressable>
-			</View>
+        <Pressable onPress={() => navigation.navigate("ForgotPasswordPage")}>
+          <Text className="text-primary-600">Forgot password</Text>
+        </Pressable>
+      </View>
 
-			<View className="mt-6 text-white rounded w-full text-capitalize">
-				<TouchableOpacity
-					onPress={handleSubmit(onSubmit)}
-					className="bg-primary-600 px-3 py-4 rounded-xl items-center"
-				>
-					<Text className="text-white font-bold text-base">
-						{isSubmitting ? "Processing..." : "Login"}
-					</Text>
-				</TouchableOpacity>
-			</View>
-		</View>
-	);
+      {/* Login Button */}
+      <View className="mt-6 rounded w-full">
+        <TouchableOpacity
+          onPress={handleSubmit(onSubmit, onError)}
+          // onPress={()=>{
+          //   console.log("Pressed")
+          //   }}
+          className="bg-primary-600 px-3 py-4 rounded-xl items-center"
+          disabled={isSubmitting}
+        >
+          <Text className="text-white font-bold text-base">
+            {isSubmitting ? "Processing..." : "Login"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }

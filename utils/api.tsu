@@ -1,0 +1,176 @@
+import axios, {
+	AxiosError,
+	AxiosResponse,
+	AxiosInstance,
+	AxiosRequestConfig,
+	InternalAxiosRequestConfig,
+} from "axios";
+import { getAuthenticatedSession, killAuthenticatedSession } from "./auth";
+
+const API_BASE_URL =
+	process.env.API_BASE_URL || "https://osen-api.appinapp.ke"; 
+const API_BASE_VERSION = process.env.API_BASE_VERSION || "v1";
+
+const http: AxiosInstance = axios.create({
+	baseURL: `${API_BASE_URL}/${API_BASE_VERSION}`,
+	withCredentials: false,
+	headers: {
+		Accept: "Application/json",
+		"Content-Type": "Application/json",
+	},
+});
+
+const handleResponse = (response: AxiosResponse | undefined) => response;
+
+const handleError = (reason: string | number = "expired") => reason;
+
+http.interceptors.request.use(
+	async (config: InternalAxiosRequestConfig) => {
+		const session = await getAuthenticatedSession();
+
+		if (config.headers && session && session.sessionToken) {
+			config.headers.Authorization = `Bearer ${session.sessionToken}`;
+		}
+
+		console.info({ config });
+
+		return config;
+	},
+	error => Promise.reject(error)
+);
+
+http.interceptors.response.use(
+	(response: AxiosResponse) => {
+		handleResponse(response);
+
+		return response;
+	},
+	async (error: AxiosError) => {
+		if (401 === error.response?.status) {
+			killAuthenticatedSession();
+
+			return Promise.reject(error);
+		} else if (404 === error.response?.status) {
+			handleResponse(error.response);
+		} else if (422 === error.response?.status) {
+			console.error(error.response.data);
+			// if((error.response.data as any).errors) {
+			// 	const errors: Record<string, string|number>[] = error.response.data.errors;
+			// 	handleResponse(errors.reduce((acc, cur) => {
+			// 		acc[cur.field] = cur.message;
+			// 		return acc;
+			// 	}, {} as Record<string, string|number>));
+			// }
+
+			handleResponse(error.response);
+			return Promise.reject(error);
+		} else {
+			handleResponse(error.response);
+			return Promise.reject(error);
+		}
+	}
+);
+
+const buildQueryString = (query?: Record<string, string | number>): string => {
+	if (query) {
+		const keys = Object.keys(query);
+		return keys.length
+			? "?" + keys.map(k => `${k}=${query[k]}`).join("&")
+			: "";
+	}
+
+	return "";
+};
+
+export const imagePath = (
+	path: string | undefined | null,
+	defaultImage = ""
+): string => {
+	if (path?.includes("amazonaws")) {
+		return path;
+	}
+
+	return path
+		? `${API_BASE_URL}${path}`
+		: defaultImage ||
+				"https://appinapp.co.ke/vapp-landing/img/footer-logo.png";
+};
+
+export const api: {
+	get: <T>(
+		path: string,
+		query?: Record<string, string | number>,
+		options?: AxiosRequestConfig
+	) => Promise<T | undefined>;
+	post: <T>(
+		path: string,
+		payload?: Record<string, unknown> | Partial<T> | FormData,
+		options?: AxiosRequestConfig
+	) => Promise<T | undefined>;
+	put: <T>(
+		path: string,
+		payload?: Record<string, unknown> | Partial<T> | FormData,
+		options?: AxiosRequestConfig
+	) => Promise<T | undefined>;
+	patch: <T>(
+		path: string,
+		payload?: Record<string, unknown> | Partial<T> | FormData,
+		options?: AxiosRequestConfig
+	) => Promise<T | undefined>;
+	destroy: <T>(
+		id: number | string,
+		path?: string,
+		options?: AxiosRequestConfig
+	) => Promise<T | undefined>;
+} = {
+	get: async <T>(
+		path: string,
+		query?: Record<string, string | number>,
+		options?: AxiosRequestConfig
+	): Promise<T | undefined> => {
+		const { data } = await http.get(
+			path + buildQueryString(query),
+			options
+		);
+
+		return data;
+	},
+
+	post: async <T>(
+		path: string,
+		payload = {},
+		options?: AxiosRequestConfig
+	): Promise<T | undefined> => {
+		const { data } = await http.post(path, payload, options);
+
+		return data;
+	},
+
+	put: async <T>(
+		path: string,
+		payload = {},
+		options?: AxiosRequestConfig
+	): Promise<T | undefined> => {
+		const { data } = await http.put(path, payload, options);
+
+		return data;
+	},
+	patch: async <T>(
+		path: string,
+		payload = {},
+		options?: AxiosRequestConfig
+	): Promise<T | undefined> => {
+		const { data } = await http.patch(path, payload, options);
+
+		return data;
+	},
+	destroy: async <T>(
+		id: number | string,
+		path = "users",
+		options?: AxiosRequestConfig
+	): Promise<T | undefined> => {
+		const { data } = await http.delete(`/${path}/${id}`, options);
+
+		return data;
+	},
+};
