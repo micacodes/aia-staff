@@ -17,6 +17,7 @@ export type SessionContext = {
 		id: string;
 		vendor: Vendor;
 		branch: Branch;
+		role: string;
 	};
 } | null;
 

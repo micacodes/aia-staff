@@ -12,7 +12,7 @@ import axios, {
 import { getAuthenticatedSession, killAuthenticatedSession } from "./auth";
 
 const API_BASE_URL =
-  process.env.API_BASE_URL || "https://osen-api.appinapp.ke";
+  process.env.API_BASE_URL || "http://192.168.1.11:44335";
 const API_BASE_VERSION = process.env.API_BASE_VERSION || "v1";
 
 const http: AxiosInstance = axios.create({

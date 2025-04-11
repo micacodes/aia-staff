@@ -210,7 +210,7 @@ const BroadcastPage = ({ navigation }) => {
 												key: "groups",
 												value: "Customer groups",
 											},
-											{
+									{
 												key: "individual",
 												value: "Individual customers",
 											},
