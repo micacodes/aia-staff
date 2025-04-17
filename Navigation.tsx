@@ -107,6 +107,7 @@ const TabNavigator = () => {
 	const role = session?.role; // Get role (e.g., 'chef', 'rider', 'manager') - already lowercase
 	const isChefOrRider = role === 'chef' || role === 'rider';
 	console.log("[Navigation] Rendering Tabs for Role:", role); // For debugging
+    console.log("[Navigation] Is Chef or Rider:", isChefOrRider); // Debugging the RBAC condition
 
 	return (
 		<Tab.Navigator

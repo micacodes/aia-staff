@@ -1,5 +1,4 @@
 import React, { useState, useContext, useEffect, useRef } from "react";
-import PagerView from "react-native-pager-view";
 import { Rating } from "react-native-ratings";
 // import HTMLView from "react-native-htmlview";
 import {
@@ -13,7 +12,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
+  ActivityIndicator, // Ensure ActivityIndicator is imported if used
 } from "react-native";
 import * as Device from 'expo-device';
 
@@ -37,12 +36,13 @@ export default function HomePage({ navigation, route }) {
   // Destructure sessionToken as identified before
   const { session, sessionToken, isAuthenticated } = useAuth();
   const role = session?.role;
-  console.log("[HomePage] Rendering for Role:", role);
+  // console.log("[HomePage] Rendering for Role:", role); // Keep if helpful
 
   // --- State ---
-  // --- FRONTEND FIX 1: Change state type to handle array of strings ---
+  // --- State type handles array of strings ---
   const [menuCards, setMenuCards] = useState<string[]>([]);
   const [isLoadingCards, setIsLoadingCards] = useState(false);
+  const [isLoadingSearch, setIsLoadingSearch] = useState(false); // Separate loading state
   const [cardError, setCardError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
@@ -63,8 +63,7 @@ export default function HomePage({ navigation, route }) {
               if (hasPermission) {
                   const fcmToken = await getFCMToken();
                   if (fcmToken && sessionToken) {
-                      console.log("[HomePage] FCM Token:", fcmToken);
-                      // Post device token if needed (interceptor adds auth)
+                      // console.log("[HomePage] FCM Token:", fcmToken);
                       // await api.post('/users/devices', { token: fcmToken, type: Platform.OS });
                   }
               }
@@ -81,94 +80,74 @@ export default function HomePage({ navigation, route }) {
   useEffect(() => { /* Search */
       const trimmedQuery = searchQuery.trim();
       if (trimmedQuery.length > 2) {
-          // Assuming products endpoint returns { data: [...] }
-          api.get<PaginatedData<Product>>("products", { s: trimmedQuery }) // Pass query as second arg
+          setIsLoadingSearch(true); // Start search loading
+          api.get<PaginatedData<Product>>("products", { s: trimmedQuery })
             .then((response) => {
-                setSearchResults(response && Array.isArray(response.data) ? response.data : []);
+                setSearchResults(response?.data && Array.isArray(response.data) ? response.data : []);
             })
-            .catch(err => { console.error("Product search failed:", err); setSearchResults([]); });
-      } else { setSearchResults([]); }
+            .catch(err => { console.error("Product search failed:", err); setSearchResults([]); })
+            .finally(() => setIsLoadingSearch(false)); // Stop search loading
+      } else {
+          setSearchResults([]);
+      }
   }, [searchQuery]);
 
-  // --- Effect to Fetch Action Cards ---
+  // --- Effect to Fetch Action Cards (Strings) ---
   useEffect(() => {
-    // Check auth state and token (needed for interceptor)
     if (isAuthenticated && session?.id && sessionToken) {
       setIsLoadingCards(true);
       setCardError(null);
       setMenuCards([]);
       const endpoint = 'auth/role-actions';
+      console.log(`[HomePage] Attempting to fetch action strings from: ${endpoint}`);
 
-      console.log(`[HomePage] Attempting to fetch actions from: ${endpoint} (interceptor will add token)`);
-
-      // --- FRONTEND FIX 2: Call api.get correctly (no manual config), expect string array ---
-      api.get<string[]>(endpoint) // Expect string[] directly from API now
+      api.get<string[]>(endpoint) // Expect string[]
         .then(response => {
-          // response should now be ["Orders", "Summaries"]
           const actionData = response;
-
-          console.log(`[HomePage] Successfully fetched actions from ${endpoint}. Response data:`, actionData);
-
-          // Check if the response IS an array (even if empty)
+          console.log(`[HomePage] Successfully fetched action strings from ${endpoint}. Response data:`, actionData);
           if (Array.isArray(actionData)) {
-              // Verify items are strings if needed, otherwise just set
-              setMenuCards(actionData.filter(item => typeof item === 'string'));
+              const filteredActions = actionData.filter(item => typeof item === 'string');
+              setMenuCards(filteredActions);
+              console.log("[HomePage] menuCards updated:", filteredActions); // <--- ADD THIS LINE
           } else {
-              // Handle cases where response is not an array (null, undefined, object etc.)
               console.warn(`[HomePage] Received non-array data from ${endpoint}. Setting empty actions. Received:`, actionData);
-              setMenuCards([]); // Ensure cards are empty
+              setMenuCards([]);
               setCardError("Received invalid action data format from server.");
           }
         })
         .catch(error => {
-          // Keep the detailed error logging
           console.error(`[HomePage] Failed to load actions from endpoint: ${endpoint}. API Error:`, error);
            if (error.response) {
-                console.error("[HomePage] API Error Response Data:", error.response.data);
-                console.error("[HomePage] API Error Response Status:", error.response.status);
                 const message = error.response.data?.message || `Server error (${error.response.status})`;
-                if (error.response.status === 401 || error.response.status === 403) {
-                    setCardError("Authentication failed. Please log in again.");
-                } else {
-                    setCardError(`Failed to load actions: ${message}`);
-                }
-            } else if (error.request) {
-                console.error("[HomePage] API Error Request (No Response):", error.request);
-                setCardError("Failed to load actions: Could not connect to the server.");
-            } else {
-                console.error("[HomePage] API Error Message (Request Setup):", error.message);
-                setCardError("Failed to load actions: Application error preparing request.");
-            }
-            console.error("[HomePage] Full API Error Config (from Axios):", error.config);
+                if (error.response.status === 401 || error.response.status === 403) { setCardError("Authentication failed."); }
+                else { setCardError(`Failed to load actions: ${message}`); }
+            } else if (error.request) { setCardError("Failed to load actions: Could not connect to server."); }
+            else { setCardError("Failed to load actions: Application error."); }
             setMenuCards([]);
         })
-        .finally(() => {
-          console.log(`[HomePage] Finished attempt to fetch actions from ${endpoint}`);
-          setIsLoadingCards(false);
-        });
+        .finally(() => { setIsLoadingCards(false); });
     } else {
-      // Conditions not met
-      setMenuCards([]);
-      setIsLoadingCards(false);
-      setCardError(null);
-      if (!isAuthenticated) console.log("[HomePage] Not fetching actions: User not authenticated.");
-      if (!session?.id) console.log("[HomePage] Not fetching actions: Session ID missing.");
-      if (!sessionToken) console.log("[HomePage] Not fetching actions: Auth Token (sessionToken) missing.");
+      setMenuCards([]); setIsLoadingCards(false); setCardError(null);
+      // Log reasons if needed
     }
   }, [isAuthenticated, session?.id, sessionToken]);
 
 
-  // --- FRONTEND FIX 3: Add the lookup map for card details ---
-  // Define this inside the component function, before the return statement.
-  // !!! YOU MUST UPDATE iconName and pageName TO MATCH YOUR APP !!!
+  // --- Lookup map for card details based on string from API ---
+  // --- UPDATE THIS MAP with correct iconName and pageName for YOUR app ---
   const actionCardDetails: { [key: string]: { iconName: string; pageName: string } } = {
-    "Orders": { iconName: "receipt-outline", pageName: "Order" }, // Example, adjust!
-    "Summaries": { iconName: "chart-bar", pageName: "SummaryScreen" },   // Example, adjust!
-    // Add entries for ALL possible strings the API might return
-    // e.g., "Inventory": { iconName: "clipboard-list-outline", pageName: "InventoryScreen" },
+    "Orders":        { iconName: "basket",       pageName: "OrdersPage" },
+    "New Order":     { iconName: "draw-pen",     pageName: "NewOrdersPage" },
+    "Onboard":       { iconName: "border-color", pageName: "OnboardPage" },
+    "Broadcast":     { iconName: "send",         pageName: "BroadcastPage" },
+    "Reservations":  { iconName: "calendar",     pageName: "ReservationsPage" },
+    "Menu":          { iconName: "book-open",    pageName: "Menu" },
+    "Reports":        { iconName: "mail",         pageName: "ReportingPage" },
+    "Rate Customer": { iconName: "star",         pageName: "RatingPage" },
+     // Add other potential strings like "Summaries" if the API sends them
+     "Summaries": { iconName: "chart-bar", pageName: "SummaryScreen" }, // Adjust pageName if needed
   };
-  // Define a fallback for safety if an unknown string is received
-  const fallbackDetails = { iconName: "help-circle-outline", pageName: "HomeScreen" };
+  const fallbackDetails = { iconName: "help-circle-outline", pageName: "Home" }; // Fallback uses "Home" page
 
   // --- Styles ---
   const htmlStyles = StyleSheet.create({ p: { margin: 0, color: '#6B7280', fontSize: 12 }, });
@@ -176,10 +155,10 @@ export default function HomePage({ navigation, route }) {
   // --- Render Function ---
   return (
     <View className="py-6 bg-primary-50 pt-10 h-full flex-1">
-      {/* Header Section (No changes needed here) */}
+      {/* Header Section */}
       <View className="mb-4 w-full">
-        {/* Row 1: Avatar + Info */}
-        <View className="flex flex-row justify-between items-center ml-3 py-3">
+         {/* Row 1: Avatar + Info */}
+         <View className="flex flex-row justify-between items-center ml-3 py-3">
            <View className="flex flex-row items-center w-full space-x-2">
             {session?.avatarUrl ? ( <Image source={{ uri: session.avatarUrl }} height={48} width={48} className="rounded-full bg-gray-300"/>
             ) : ( <View className="h-12 w-12 rounded-full bg-gray-300 items-center justify-center"><Icon name="account" size={30} color="#6B7280" /></View> )}
@@ -200,7 +179,7 @@ export default function HomePage({ navigation, route }) {
             </View>
           </View>
         </View>
-        {/* Row 2: Search Section (No changes needed here) */}
+        {/* Row 2: Search Section */}
         <View className="flex items-center justify-center mx-4 relative">
            <View className="w-full h-12 rounded-3xl bg-gray-200 flex flex-row items-center px-3">
              <Icon name="magnify" size={25} color="#5E9C8F" />
@@ -211,27 +190,23 @@ export default function HomePage({ navigation, route }) {
                 onChangeText={setSearchQuery}
                 returnKeyType="search"
              />
+             {isLoadingSearch && <ActivityIndicator size="small" color="#5E9C8F" style={{ marginRight: 5 }}/>}
            </View>
-           {searchQuery.length > 2 && (
+           {/* Search Results Overlay */}
+           {searchQuery.length > 2 && !isLoadingSearch && (
              <View style={styles.searchResultsContainer} className="absolute top-full left-0 right-0 mt-1 z-50 bg-white shadow-lg rounded-md max-h-60 border border-gray-200">
                {searchResults.length > 0 ? (
                  <FlatList
                       data={searchResults}
-                      keyExtractor={(item) => item.id} // Product search results likely have IDs
+                      keyExtractor={(item) => item.id}
                       renderItem={({item: product}) => (
                           <TouchableOpacity
                               key={product.id}
-                              onPress={() => {
-                                  setSearchQuery('');
-                                  setSearchResults([]);
-                                  navigation.navigate("ProductDetails", { productId: product.id });
-                              }}
+                              onPress={() => { setSearchQuery(''); setSearchResults([]); navigation.navigate("ProductDetails", { productId: product.id }); }}
                               className="border-b border-gray-200 flex flex-row justify-between items-center py-2 px-4"
                           >
                               <View className="flex flex-row items-center flex-1 mr-2">
-                                  {product.image?.url && (
-                                      <View className="mr-3"><Image source={{ uri: imagePath(product.image.url) }} height={40} width={40} className="rounded-full bg-gray-200"/></View>
-                                  )}
+                                  {product.image?.url && (<View className="mr-3"><Image source={{ uri: imagePath(product.image.url) }} height={40} width={40} className="rounded-full bg-gray-200"/></View>)}
                                   <View className="flex-1">
                                       <Text className="text-base font-bold" numberOfLines={1}>{product.name || 'N/A'}</Text>
                                       {product.details ? (<Text numberOfLines={1} style={htmlStyles.p}>{product.details.replace(/<[^>]*>?/gm, '').slice(0, 50) + (product.details.length > 50 ? '...' : '')}</Text>) : null }
@@ -241,9 +216,7 @@ export default function HomePage({ navigation, route }) {
                           </TouchableOpacity>
                       )}
                  />
-               ) : (
-                 <View className="p-4 items-center justify-center"><Text className="text-center text-gray-500">No products found</Text></View>
-               )}
+               ) : ( <View className="p-4 items-center justify-center"><Text className="text-center text-gray-500">No products found</Text></View> )}
              </View>
            )}
          </View>
@@ -260,36 +233,45 @@ export default function HomePage({ navigation, route }) {
       ) : (
           <FlatList
             showsVerticalScrollIndicator={false}
-            // --- FRONTEND FIX 4: Update renderItem ---
+            // --- Corrected renderItem ---
             renderItem={({ item: taskName }) => { // item is the string e.g. "Orders"
               const details = actionCardDetails[taskName] || fallbackDetails; // Look up details or use fallback
+
+              // Optional: Check if details were found or if using fallback
+              if (!actionCardDetails[taskName]) {
+                  console.log(`[HomePage] Using fallback details for task: ${taskName}`);
+              }
+
               return (
                 <TouchableOpacity
-                  className="flex-1 h-32 justify-center items-center rounded-xl bg-primary-200 p-4 active:bg-primary-300"
-                  style={styles.actionCard}
-                  onPress={() => navigation.navigate(details.pageName)} // Use looked-up pageName
-                  accessibilityLabel={taskName}
+                  className="flex-1 h-32 justify-center items-center rounded-xl bg-primary-200 p-4 active:bg-primary-300" // Use Tailwind or StyleSheet
+                  style={styles.actionCardContainer} // Example StyleSheet usage
+                  // --- CORRECTED onPress ---
+                  onPress={() => {
+                    // Use details.pageName and taskName in the log
+                    console.log(`[HomePage] Card Pressed. Attempting to navigate to: ${details.pageName} (for card: ${taskName})`);
+                    // Use details.pageName for navigation
+                    navigation.navigate(details.pageName);
+                  }}
+                  // --- CORRECTED accessibilityLabel ---
+                  accessibilityLabel={taskName} // Use taskName directly
                 >
                   <View className="flex justify-center items-center">
-                    {/* Use looked-up iconName */}
                     <Icon name={details.iconName} size={50} color="#5E9C8F"/>
-                    {/* Use the taskName string directly for the label */}
                     <Text className="font-bold text-[16px] mt-1 text-center text-gray-600">{taskName}</Text>
                   </View>
                 </TouchableOpacity>
               );
             }}
-            data={menuCards} // Data is now string[]
+            data={menuCards} // Data is string[] fetched from API
             numColumns={2}
             contentContainerStyle={{ gap, paddingBottom: 20 }}
             columnWrapperStyle={{ gap }}
-            // --- FRONTEND FIX 5: Update keyExtractor ---
-            keyExtractor={(item, index) => `${item}-${index}`} // Use item string + index
+            keyExtractor={(item, index) => `${item}-${index}`} // Use item string + index for key
             className="m-3 flex-1"
             ListEmptyComponent={
                <View style={styles.centered}>
-                 {/* This message shows if API returns [] or only unknown strings */}
-                 <Text className="text-center text-gray-500">No actions available for your role.</Text>
+                 <Text style={styles.infoText}>No actions available for your role.</Text>
               </View>
              }
           />
@@ -302,8 +284,11 @@ export default function HomePage({ navigation, route }) {
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   infoText: { marginTop: 10, color: '#6B7280', textAlign: 'center' },
-  errorText: { color: '#DC2626' },
+  errorText: { color: '#DC2626', textAlign: 'center', padding: 10 },
   htmlStyles: { p: { margin: 0, color: '#6B7280', fontSize: 12 } },
-  actionCard: {},
-  searchResultsContainer: {}
+  actionCardContainer: { flex: 1, height: 128, justifyContent: 'center', alignItems: 'center', borderRadius: 12, padding: 16, backgroundColor: '#D6EFED' },
+  searchResultsContainer: {},
+  // Optional style for invalid items if needed from previous examples:
+  // invalidItemPlaceholder: { backgroundColor: '#FFEBEB', borderColor: '#FFCCCC', borderWidth: 1, },
+  // errorTextSmall: { fontSize: 10, color: 'red', textAlign: 'center', }
 });
