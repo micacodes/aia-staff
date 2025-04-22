@@ -41,6 +41,7 @@ import RatingPage from "./screens/customers/RatingPage";
 import ForgotPasswordPage from "./screens/auth/ForgotPasswordPage";
 import Language from "./screens/account/Language";
 import Ratings from "./screens/account/Ratings";
+import ReservationWizard from "./screens/customers/ReservationWizard";
 
 // --- Navigator Definitions ---
 const Tab = createBottomTabNavigator();
@@ -69,6 +70,7 @@ const Stack = createNativeStackNavigator<{
 	NewOrdersPage: undefined;
 	BroadcastPage: undefined;
 	ReservationsPage: undefined;
+	ReservationWizard: { selectedDate: string };
 	Menu: undefined;
 	Analytics: undefined;
 	Notifications: undefined;
@@ -314,6 +316,7 @@ export default function Navigation() {
 						<Stack.Screen name="NewOrdersPage" component={NewOrdersPage} options={{ title:"New Order", headerShown: true, headerBackTitleVisible: false, headerRight }} />
 						<Stack.Screen name="BroadcastPage" component={BroadcastPage} options={{ title: "Send notifications", headerShown: true, headerBackTitleVisible: false, headerRight }} />
 						<Stack.Screen name="ReservationsPage" component={ReservationsPage} options={{ title:"Reservations", headerShown: true, headerBackTitleVisible: false, headerRight }} />
+						<Stack.Screen name="ReservationWizard" component={ReservationWizard} options={{ title: "New Reservation", headerShown: true }} />
 						<Stack.Screen name="Menu" component={Menu} options={{ title:"Menu", headerShown: true, headerBackTitleVisible: false, headerRight }} />
 						<Stack.Screen name="CheckoutCartPage" component={CheckoutCartPage} options={{ headerShown: true, headerBackTitleVisible: false, title: "My cart" }} />
 						<Stack.Screen name="ProductDetails" component={ProductDetails} options={{ headerShown: false, headerBackTitleVisible: false, title: "Product Details" }} />

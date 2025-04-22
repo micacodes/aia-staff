@@ -1,5 +1,7 @@
 // ReservationsPage.tsx
-// Path: (Likely) src/screens/customers/ReservationsPage.tsx
+// Path: src/screens/customers/ReservationsPage.tsx
+// MODIFIED: Removed 'creating' state and Modal for old Reservation component.
+// MODIFIED: "New Reservation" button now navigates to 'ReservationWizard'.
 
 import React, { useEffect, useState, useCallback } from "react";
 import {
@@ -11,7 +13,7 @@ import {
 	View,
 	SafeAreaView,
 	ScrollView,
-	Modal,
+	Modal, // Keep Modal for Details view
 	TouchableOpacity,
 	StyleSheet,
     ActivityIndicator,
@@ -24,18 +26,18 @@ import {
 	AgendaEntry,
 	AgendaSchedule,
 } from "react-native-calendars";
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, isValid } from 'date-fns'; // Removed unused imports
 import { useToast } from "react-native-toast-notifications";
 
-// Import the Reservation creation component (ensure path is correct)
-import Reservation from "../../components/Reservation"; // Adjust path if needed
+// --- REMOVED OLD Reservation component import ---
+// import Reservation from "../../components/Reservation"; // No longer needed here
 
-// --- Define Interfaces (!!! IMPORTANT: ADJUST TO MATCH GENERATED MODEL & API RESPONSE !!!) ---
+// --- Interfaces (Keep as is) ---
 interface Customer {
     id: string | number; name?: string; firstName?: string; lastName?: string; phone?: string;
 	avatar?: { url: string | null } | null; avatarUrl?: string | null;
 }
-interface ReservationItem { /* Assume fields from associated Order's items if preloaded */
+interface ReservationItem {
     id: string | number; name: string; quantity?: number; price?: number;
     pivot?: { quantity?: number; price?: number; meta?: any };
 }
@@ -44,12 +46,11 @@ interface Branch { id: string | number; name: string; }
 interface Lot { id: string | number; name: string; }
 interface AssociatedOrder { id: string | number; items?: ReservationItem[]; }
 
-// Structure matching the GENERATED Reservation.ts model + preloads
 interface ReservationData {
 	id: string | number;
-	reservation_start: string; // Expecting ISO string from backend
-	reservation_end: string; // Expecting ISO string from backend
-	headCount?: number; // Use camelCase from model
+	reservation_start: string;
+	reservation_end: string;
+	headCount?: number;
 	status: string;
 	notes?: string | null;
 	branchId?: string;
@@ -59,43 +60,39 @@ interface ReservationData {
 	userId?: string;
     createdAt?: string;
     updatedAt?: string;
-	// Preloaded relationships
 	user?: Customer | null;
 	section?: Section | null;
 	branch?: Branch | null;
 	lot?: Lot | null;
 	order?: AssociatedOrder | null;
-    // Other potential fields from original interface if they exist on Reservation model directly
     delivery?: string;
 	type?: string;
     action?: string;
     ref?: string | null;
 }
 
-// Interface for items state needed by Agenda
 interface AgendaReservationEntry extends AgendaEntry {
-	name: string; height: number; day: string; // 'YYYY-MM-DD'
-	data: ReservationData; // Include the original reservation data object
+	name: string; height: number; day: string;
+	data: ReservationData;
 }
 
-// Interface for the Paginated Response from AdonisJS .paginate()
 interface PaginatedData<T> {
     meta: { total: number; per_page: number; current_page: number; last_page: number; first_page: number; first_page_url: string | null; last_page_url: string | null; next_page_url: string | null; previous_page_url: string | null; };
     data: T[];
 }
 
-
 // --- Component ---
 export default function ReservationsPage({ navigation }) {
 	const [status, setStatus] = useState("Pending");
 	const [selectedReservation, setSelectedReservation] = useState<ReservationData | undefined>(undefined);
-	const [creating, setCreating] = useState(false);
+	// --- REMOVED 'creating' state ---
+	// const [creating, setCreating] = useState(false);
 	const [items, setItems] = useState<AgendaSchedule<AgendaReservationEntry>>({});
 	const [selected, setSelected] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [isLoading, setIsLoading] = useState(false);
 	const toast = useToast();
 
-	// --- StatusBar ---
+	// --- StatusBar (Keep as is) ---
 	useEffect(() => {
         StatusBar.setBarStyle("dark-content");
         if (Platform.OS === "android") {
@@ -104,43 +101,42 @@ export default function ReservationsPage({ navigation }) {
         }
 	}, []);
 
-    // --- Update Navigation Title ---
+    // --- Update Navigation Title (Keep as is) ---
 	useEffect(() => {
 		navigation.setOptions({ title: `Reservations: ${selected}` });
 	}, [selected, navigation]);
 
-	// --- Effect to Fetch Data AND Update Agenda Items ---
+	// --- Effect to Fetch Data AND Update Agenda Items (Keep as is) ---
 	useEffect(() => {
 		const fetchDataAndUpdateAgenda = async () => {
             console.log(`Fetching reservations for date: ${selected}`);
             setIsLoading(true);
 
             const params = new URLSearchParams({
-                start: selected, // Send selected date - Backend filter MUST handle this
+                start: selected, // Send selected date
                 status: status,
                 limit: '100',
                 page: '1',
             });
-            // --- CORRECT API ENDPOINT ---
             const urlWithParams = `/v1/reservations?${params.toString()}`;
             console.log("Requesting URL:", urlWithParams);
 
 			let response;
 			try {
                 response = await api.get<PaginatedData<ReservationData>>(urlWithParams);
-				const fetchedData = response?.data?.data || []; // Access nested data array
+				const fetchedData = response?.data?.data || [];
 				console.log(`Fetched ${fetchedData.length} reservations.`);
 
                 const newAgendaItemsForDate: AgendaReservationEntry[] = [];
                 fetchedData.forEach(res => {
-                    const reservationDate = res.reservation_start; // Use correct field name
+                    const reservationDate = res.reservation_start;
                     try {
                         if (!reservationDate || isNaN(new Date(reservationDate).getTime())) {
                             throw new Error(`Invalid reservation_start date: ${reservationDate}`);
                         }
                         const dateStr = format(new Date(reservationDate), 'yyyy-MM-dd');
                         const timeStr = format(new Date(reservationDate), 'HH:mm');
-                        if (dateStr !== selected) { return; } // Skip if date doesn't match selected
+                        if (dateStr !== selected) { return; }
 
                         const customerData = res.user;
                         const customerName = customerData?.name || `${customerData?.firstName || ''} ${customerData?.lastName || ''}`.trim() || 'Unknown';
@@ -149,14 +145,13 @@ export default function ReservationsPage({ navigation }) {
                             name: `${customerName} @ ${timeStr}`,
                             height: 80,
                             day: dateStr,
-                            data: res, // Store full reservation object
+                            data: res,
                         });
                     } catch (processingError: any) {
                         console.error(`Error processing reservation ID ${res.id}:`, processingError.message, res);
                     }
                 });
 
-                // Update items state ONLY for the selected date
                 setItems(prevItems => ({
                     ...prevItems,
                     [selected]: newAgendaItemsForDate,
@@ -168,7 +163,7 @@ export default function ReservationsPage({ navigation }) {
                  if (error.response) { errorMessage = `Error ${error.response.status}: ${error.response.data?.message || 'Server error'}`; }
                  else if (error.request) { errorMessage = "Network Error: Could not reach server."; }
                  toast.show(errorMessage, { type: 'danger' });
-                 setItems(prevItems => ({ ...prevItems, [selected]: [] })); // Clear data for date on error
+                 setItems(prevItems => ({ ...prevItems, [selected]: [] }));
 			} finally {
                 setIsLoading(false);
             }
@@ -178,7 +173,7 @@ export default function ReservationsPage({ navigation }) {
 	}, [selected, status, toast]);
 
 
-    // --- Memoized Render Item ---
+    // --- Memoized Render Item (Keep as is) ---
     const MemoizedAgendaItem = React.memo(({ item }: { item: AgendaReservationEntry }) => {
         if (!item?.data) return null;
         const reservationData = item.data;
@@ -199,7 +194,6 @@ export default function ReservationsPage({ navigation }) {
                         <Text style={styles.itemTextInfo} numberOfLines={2}>
                             {reservationDate ? format(new Date(reservationDate), 'HH:mm') : 'N/A'}
                             {reservationData.section ? ` @ ${reservationData.section.name}` : ''}
-                            {/* Use headCount from model */}
                             {reservationData.headCount ? ` (${reservationData.headCount} guests)` : ''}
                         </Text>
                         <Text style={styles.itemTextStatus}>Status: {reservationData.status}</Text>
@@ -209,11 +203,9 @@ export default function ReservationsPage({ navigation }) {
         );
     });
 
-    // --- Render Item Callback for Agenda ---
+    // --- Render Item Callbacks (Keep as is) ---
     const renderAgendaItem = useCallback((item: AgendaReservationEntry) => <MemoizedAgendaItem item={item} />, []);
-    // --- Render Empty Date Slot ---
     const renderEmptyDateSlot = useCallback(() => <View style={styles.emptyDate} />, []);
-    // --- Row Change Check ---
     const rowHasChanged = useCallback((r1: AgendaReservationEntry, r2: AgendaReservationEntry) => {
          if (!r1?.data || !r2?.data) return true;
          return r1.data.id !== r2.data.id || r1.data.status !== r2.data.status;
@@ -221,7 +213,7 @@ export default function ReservationsPage({ navigation }) {
 
 	return (
 		<SafeAreaView style={styles.safeArea}>
-            {/* --- Details Modal --- */}
+            {/* --- Details Modal (Keep as is) --- */}
 			{selectedReservation && (
 				<Modal animationType="slide" transparent={true} visible={!!selectedReservation} onRequestClose={() => setSelectedReservation(undefined)}>
 					<View style={styles.modalOverlay}>
@@ -231,13 +223,12 @@ export default function ReservationsPage({ navigation }) {
                             </Pressable>
                             <Text style={styles.modalTitle}>Reservation Details</Text>
                             <ScrollView showsVerticalScrollIndicator={false}>
-                                {/* Display fields based on ReservationData interface */}
+                                {/* Modal Content (Keep as is) */}
                                 {selectedReservation.reservation_start && (<View style={styles.modalSection}><Text style={styles.modalLabel}>Time:</Text><Text style={styles.modalValue}>{format(new Date(selectedReservation.reservation_start), 'EEE, MMM d, HH:mm')}</Text></View>)}
                                 {selectedReservation.headCount && (<View style={styles.modalSection}><Text style={styles.modalLabel}>Guests:</Text><Text style={styles.modalValue}>{selectedReservation.headCount}</Text></View>)}
                                 <View style={styles.modalSection}><Text style={styles.modalLabel}>Location:</Text><Text style={styles.modalValue}>{selectedReservation.section?.name ?? 'N/A'}</Text></View>
                                 <View style={styles.modalSection}><Text style={styles.modalLabel}>Status:</Text><Text style={styles.modalValue}>{selectedReservation.status}</Text></View>
                                 {selectedReservation.user && (<View style={styles.modalSection}><Text style={styles.modalLabel}>Customer:</Text><Text style={styles.modalValue}>{`${selectedReservation.user.firstName || ''} ${selectedReservation.user.lastName || ''}`.trim()} ({selectedReservation.user.phone ?? 'No Phone'})</Text></View>)}
-                                {/* Map items if they come via preloaded order */}
                                 {selectedReservation.order?.items && selectedReservation.order.items.length > 0 && (
                                     <View style={styles.modalSection}>
                                         <Text style={styles.modalLabel}>Order Items:</Text>
@@ -252,33 +243,29 @@ export default function ReservationsPage({ navigation }) {
 				</Modal>
 			)}
 
-            {/* --- Creation Modal --- */}
-			{creating && (
-				<Modal animationType="slide" visible={creating} onRequestClose={() => setCreating(false)}>
-					<Reservation
-						onCreate={() => {
-                            setCreating(false);
-                            // Optionally refresh data for selected date
-                            setSelected(current => current);
-                        }}
-						onCancel={() => setCreating(false)}
-						selectedDate={selected}
-					/>
-				</Modal>
-			)}
+            {/* --- REMOVED Creation Modal --- */}
+            {/* {creating && ( ... old modal with <Reservation/> ... )} */}
 
-            {/* --- New Reservation Button --- */}
+            {/* --- New Reservation Button - MODIFIED onPress --- */}
 			<View style={styles.newButtonContainer}>
-				<TouchableOpacity style={styles.newButton} onPress={() => setCreating(true)}>
+				<TouchableOpacity
+                    style={styles.newButton}
+                    onPress={() => {
+                        console.log(`[ReservationsPage] Navigating to Wizard with date: ${selected}`);
+                        // *** Navigate to the new ReservationWizard screen ***
+                        // *** Passing the selected date as a parameter ***
+                        navigation.navigate('ReservationWizard', { selectedDate: selected });
+                    }}
+                >
                     <Icon name="plus-circle-outline" size={20} color="white" style={{ marginRight: 8 }} />
 					<Text style={styles.newButtonText}>New reservation for {selected}</Text>
 				</TouchableOpacity>
 			</View>
 
-            {/* --- Agenda Component --- */}
+            {/* --- Agenda Component (Keep as is) --- */}
 			<Agenda
 				items={items}
-				loadItemsForMonth={null} // Data loaded via useEffect
+				loadItemsForMonth={null}
 				selected={selected}
 				renderItem={renderAgendaItem}
 				renderEmptyDate={renderEmptyDateSlot}
@@ -294,7 +281,7 @@ export default function ReservationsPage({ navigation }) {
 	);
 }
 
-// --- Styles ---
+// --- Styles (Keep as is) ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: "#F3F4F6", },
 	newButtonContainer: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: "#F3F4F6", },
