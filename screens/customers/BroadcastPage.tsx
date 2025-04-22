@@ -211,9 +211,9 @@ export default function BroadcastPage({ navigation }) {
             } else if (session?.role === 'manager' && session?.vendor?.id) {
                 templateFetchURL = `vendors/${session.vendor.id}/message-templates?managed=true`;
             }
-            // else if (session?.role === 'admin') {
-            //     templateFetchURL = "message-templates"; // Admin fetches all (default)
-            // }
+            else if (session?.role === 'admin') {
+                templateFetchURL = "message-templates"; // Admin fetches all (default)
+            }
             // No changes needed if admin fetches everything without a vendor filter.
             console.log("[BroadcastPage] Fetching templates from:", templateFetchURL);
 

@@ -381,7 +381,7 @@ export default function OrdersPage() {
 				<FlatList
 					horizontal
 					showsHorizontalScrollIndicator={false}
-					data={STATUS_OPTIONS} // Use constant
+					data={STATUS_OPTIONS} 
 					renderItem={renderStatusFilter} // Use the memoized render function
 					keyExtractor={(item) => item}
 					contentContainerStyle={styles.statusFilterContainer}
@@ -401,29 +401,29 @@ export default function OrdersPage() {
 const styles = StyleSheet.create({
 	safeArea: {
 		flex: 1,
-		backgroundColor: '#F3F4F6', // Tailwind gray-100
+		backgroundColor: '#F3F4F6', 
 	},
 	centerContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
 		padding: 20,
-        marginTop: 40, // Add some margin from the top filter
+        marginTop: 40, 
 	},
     loadingText: {
         marginTop: 10,
-        color: '#6B7280', // Tailwind gray-500
+        color: '#6B7280', 
     },
 	statusFilterContainer: {
 		paddingHorizontal: 12,
 		gap: 8,
-        height: 40, // Ensure items fit vertically
+        height: 40, 
         alignItems: 'center',
 	},
     listContainer: {
-        flex: 1, // Make sure the list container takes remaining space
+        flex: 1, 
     },
     listContentContainer: {
-        paddingBottom: 20, // Add padding at the bottom
+        paddingBottom: 20, 
     },
 });
