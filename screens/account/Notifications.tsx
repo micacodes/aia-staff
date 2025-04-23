@@ -1,41 +1,149 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import {
   FlatList,
-  Image,
-  ImageBackground,
   Platform,
-  Pressable,
-  ScrollView,
   StatusBar,
   Text,
+  TouchableOpacity,
+  RefreshControl,
 } from "react-native";
-import { View, SafeAreaView, TouchableOpacity } from "react-native";
+import { View, SafeAreaView } from "react-native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
-import { api, imagePath } from "../../utils/api";
-import { format, formatDistance } from "date-fns";
+import { api } from "../../utils/api";
+import { format } from "date-fns";
+import { AuthContext } from "../../providers/AuthProvider";
 
 export default function NotificationsPage({ navigation }) {
   const [notifications, setNotifications] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const { session } = useContext(AuthContext);
+  let dummyNotifications = [];
+  dummyNotifications = [
+    {
+      id: -1,
+      data: {
+        title: "Welcome!",
+        body: `Welcome onboard, ${session?.firstName}!`,
+        actions: [
+          {
+            label: "Go to Home",
+            screen: "Home",
+            args: {},
+          },
+        ],
+      },
+      createdAt: new Date().toISOString(),
+      read: false,
+    },
+    {
+      id: -2,
+      data: {
+        title: "Reminder",
+        body: "Don't forget to complete your profile setup.",
+        actions: [
+          {
+            label: "Complete Profile",
+            screen: "ProfileSetup",
+            args: {},
+          },
+        ],
+      },
+      createdAt: new Date().toISOString(),
+      read: false,
+    },
+    {
+      id: -3,
+      data: {
+        title: "Special Offer",
+        body: "Check out our latest promotions!",
+        actions: [
+          {
+            label: "View Offers",
+            screen: "Promotions",
+            args: {},
+          },
+        ],
+      },
+      createdAt: new Date().toISOString(),
+      read: false,
+    },
+  ];
+
+  const fetchNotifications = async () => {
+    try {
+      const { data } = await api.get("notifications");
+      const updatedNotifications = [...dummyNotifications, ...data].map(
+        (notification) => ({
+          ...notification,
+          tone: "default", // Assign a default tone to each notification
+        })
+      );
+      setNotifications(updatedNotifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      const updatedDummyNotifications = dummyNotifications.map(
+        (notification) => ({
+          ...notification,
+          tone: "default", // Assign a default tone to dummy notifications
+        })
+      );
+      setNotifications(updatedDummyNotifications);
+    }
+  };
 
   useEffect(() => {
-    api
-      .get<PaginatedData<DatabaseNotification>>("notifications")
-      .then(({ data }) => {
-        setNotifications(data);
-      });
+    fetchNotifications();
   }, []);
 
-  navigation.setOptions({
-    title: "My Notifications",
-    headerRight: () => (
-      <TouchableOpacity
-        className="rounded-full mr-4"
-        //onPress={clearNotifications}
-      >
-        <Icon name="check-all" size={30} color="#5E9C8F" />
-      </TouchableOpacity>
-    ),
-  });
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchNotifications();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    navigation.setOptions({
+      title: "Notifications",
+      headerRight: () => (
+        <TouchableOpacity
+          className="rounded-full mr-4"
+          onPress={clearNotifications}
+        >
+          <Icon name="check-all" size={30} color="#5E9C8F" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, notifications]);
+
+  const markAsRead = (notificationToMark) => {
+    setNotifications((prevNotifications) =>
+      prevNotifications.map((notification) =>
+        notification.id === notificationToMark.id
+          ? { ...notification, read: true }
+          : notification
+      )
+    );
+  };
+
+  const clearNotifications = async () => {
+    // const realNotifications = notifications.filter((n) => n.id > 0);
+    // const readNotifications = realNotifications.filter((n) => n.read);
+
+    // await Promise.all(
+    //   readNotifications.map((n) => api.destroy(`notifications/${n.id}`))
+    // );
+
+    // setNotifications([
+    //   ...dummyNotifications,
+    //   ...realNotifications.filter((n) => !n.read),
+    // ]);
+    setNotifications((prevNotifications) =>
+      prevNotifications.map((notification) => ({
+        ...notification,
+        read: true,
+      }))
+    );
+  };
 
   StatusBar.setBarStyle("dark-content");
   if (Platform.OS === "android") {
@@ -43,34 +151,17 @@ export default function NotificationsPage({ navigation }) {
     StatusBar.setTranslucent(true);
   }
 
-const markAsRead = (notificationToMark) => {
-	setNotifications((prevNotifications) =>
-		prevNotifications.map((notification) => {
-			if (notification === notificationToMark) {
-				return { ...notification, read: !notification.read };
-			}
-			return notification;
-		})
-	);
-};
-
-// const clearNotifications = async () => {
-//     const readNotifications = notifications.filter(notification => notification.read);
-
-//     await Promise.all(readNotifications.map(notification =>
-//         api.destroy(`notifications/${notification.id}`)
-//     ));
-
-//     setNotifications(notifications.filter(notification => !notification.read));
-// };
-
   return (
     <SafeAreaView className="bg-primary-50 h-full">
       <FlatList
-        showsVerticalScrollIndicator={false}
         data={notifications}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={({ item: notification }) => (
-          <View className=" bg-primary-200 rounded-xl shadow-md mb-3">
+          <View
+            className={`rounded-xl shadow-md mb-3 ${
+              notification.read ? "bg-gray-300" : "bg-primary-200"
+            }`}
+          >
             <View className="flex flex-1 flex-row-reverse px-2 py-3">
               <View className="flex-1">
                 <View className="flex flex-row items-center justify-between">
@@ -79,33 +170,24 @@ const markAsRead = (notificationToMark) => {
                   </Text>
                   <TouchableOpacity onPress={() => markAsRead(notification)}>
                     <Icon
-                      name="check"
+                      name={notification.read ? "check-all" : "check"}
                       size={40}
-                      color={notification.read ? "red" : "#5E9C8F"}
-                      value={notification.read}
+                      color={notification.read ? "white" : "#5E9C8F"}
                     />
                   </TouchableOpacity>
                 </View>
-
                 <Text>{notification.data.body}</Text>
-									<Text className="pb-1">
-										{format(
-											new Date(notification.createdAt),
-											"EEE do MMMM, yyyy HH:mm a"
-										)}
-									</Text>
+                <Text className="pb-1">
+                  {format(
+                    new Date(notification.createdAt),
+                    "EEE do MMMM, yyyy HH:mm a"
+                  )}
+                </Text>
               </View>
-
               <View className="w-1/5 justify-center items-center">
-                <Icon name="bell" size={35}></Icon>
+                <Icon name="bell" size={35} />
               </View>
             </View>
-
-            {/* <View className="flex flex-row justify-between items-center px-6"> */}
-            {/* <Text className="text-center text-sm text-gray-400">
-								{formatDistance(new Date(note.created_at), Date.now())}
-							</Text> */}
-
             <View className="w-full">
               {notification.data.actions?.map((action, key) => (
                 <TouchableOpacity
@@ -121,10 +203,12 @@ const markAsRead = (notificationToMark) => {
                 </TouchableOpacity>
               ))}
             </View>
-            {/* </View> */}
           </View>
         )}
         className="px-4 space-y-2 mt-2 mb-4"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       />
     </SafeAreaView>
   );
